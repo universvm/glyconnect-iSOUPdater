@@ -8,7 +8,7 @@ from collections import defaultdict
 #Dictionaries:
 uniprotdata = defaultdict(str) #creating empty dictionary with uniprot data and glyconnectID
 seqDict = defaultdict(str)
-export = open("data/trying.csv", "w")
+export = open("data/log.csv", "w") #keeping a log file
 export.write("isoform;uniprot_id;length\n") #Header
 
 #Parameters: To keep the main structure of API to work since they need an email address.
@@ -57,11 +57,14 @@ def database(): #keeping main function to connect. More here: https://wiki.postg
 	#To update records: IMPORTANT - METHOD OF COUNTING IS FROM 1 NOT 0
 	#cur.execute("UPDATE uckb.test SET name=10 WHERE id=3") #ID is from the table
 
-	#conn.commit()
-	cur.close()
-	conn.close()
 
 	return(d)
+
+def closAVE():
+	"Closes and saves the current state of the DB."
+	#conn.commit() #Saves changes in the database.
+	cur.close()
+	conn.close()
 
 def parsER(page): #Defining uniprotAPI
     "Parses the fasta file given from the the uniprotAPI function"
@@ -114,3 +117,13 @@ for sequence in seqDict.keys():
         if int(isoform[1]) == 2: #if it is the second isoform
             export.write("{}-1;{};{}\n".format(isoform[0],uniprotdata[isoform[0]],seqDict[isoform[0]]))
         export.write("{};{};{}\n".format(sequence,uniprotdata[isoform[0]],seqDict[sequence]))
+
+#Closing:
+closAVE()
+
+#TO DO:
+# - CHECKED = []
+# - Check if entry (isoform Uniprot ID) already exists in iso: - if it does not, add it. =]> Checked
+# 													  - if it does exist Check if the length changed, if so => update it. =]> Checked
+# - else the entry does not exist add it. =]> Checked
+# - obsolete entries => if the entry is obsolete, then it wouldn't have been checked
