@@ -8,6 +8,8 @@ from collections import defaultdict
 #Dictionaries:
 uniprotdata = defaultdict(str) #creating empty dictionary with uniprot data and glyconnectID
 seqDict = defaultdict(str)
+export = open("data/trying.csv", "w")
+export.write("isoform;uniprot_id;length\n") #Header
 
 #Parameters: To keep the main structure of API to work since they need an email address.
 params = {
@@ -95,22 +97,20 @@ def uniprotAPI(acc_n): #Defining uniprotAPI
         contact = "email" # Please set your email address here to help us debug in case of problems.
         request.add_header('User-Agent', 'Python %s' % contact)
         response = urllib2.urlopen(request)
-        parsER(response) #parsing the response
+		parsER(response) #parsing the response
     except urllib2.HTTPError: #if API call fails, it displays which one of the entry has a problem
         print("There is an error for the {0} entry".format(acc_n))
 
 #Main Loop:
 data = database() #calling database
 for line in data: #for each line in the database
-    # line = line.rstrip("\r\n") #removing \r\n
-    # table = line.split(";") #splitting by ";"
     uniprotID = line[1]
-    uniprotdata[uniprotID] += line[0] #adding
-    # uniprotAPI(uniprotID)
-print(uniprotdata)
-# for sequence in seqDict.keys():
-#     if "-" in sequence: #if it is an isoform
-#         isoform = sequence.split("-")
-#         if int(isoform[1]) == 2: #if it is the second isoform
-#             export.write("{}-1;{};{}\n".format(isoform[0],uniprotdata[isoform[0]],seqDict[isoform[0]]))
-#         export.write("{};{};{}\n".format(sequence,uniprotdata[isoform[0]],seqDict[sequence]))
+    uniprotdata[uniprotID] += str(line[0]) #Long number which connects to accession Uniprot
+    uniprotAPI(uniprotID)
+
+for sequence in seqDict.keys():
+    if "-" in sequence: #if it is an isoform
+        isoform = sequence.split("-")
+        if int(isoform[1]) == 2: #if it is the second isoform
+            export.write("{}-1;{};{}\n".format(isoform[0],uniprotdata[isoform[0]],seqDict[isoform[0]]))
+        export.write("{};{};{}\n".format(sequence,uniprotdata[isoform[0]],seqDict[sequence]))
