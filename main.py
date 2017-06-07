@@ -10,9 +10,9 @@ checked = [] #this is used later on, to delete obsolete entries
 
 #Dictionaries:
 uniprotdata = defaultdict(str) #creating empty dictionary with uniprot data and glyconnectID
-seqDict = defaultdict(str)
+seqDict = defaultdict(str) #contains uniprot accession and length
 
-#Export for the log file:
+#Export for the log files:
 export = open("data/log.csv", "w") #keeping a log file
 export.write("isoform;uniprot_id;length\n") #Header
 
@@ -76,17 +76,46 @@ cur = conn.cursor()
 cur.execute("SELECT * FROM uckb.uniprot")
 data = cur.fetchall()
 
-#Main Loop:
+#Main Loop 1:
 for line in data: #for each line in the database
     uniprotID = line[1]
     uniprotdata[uniprotID] += str(line[0]) #Long number which connects to accession Uniprot
     uniprotAPI(uniprotID)
 
+#To select the isoTable:
+cur.execute("SELECT * FROM uckb.uniprot_isoform")
+isoTable = cur.fetchall()
+
+#Main Loop 2:
 for sequence in seqDict.keys():
-	#Export of the isoform
+	#check each sequenceDictionary against each sequenceDB and do the logic
+	for i in isoTable: #Guide i[0] = id in uniprot_isoform; i[1] = uniprot accession; i[2] = uniprot id link; i[3] = length of the protein.
+		if "-" not in sequence: #even if it doesn't have the "-", it may have isoforms, so we try checking by adding -1
+			sequence += "-1"
+			if sequence == i[1]: #if the sequence finds the corresponding entry in the DB
+				checked.append(i[1]) #checked sequence so entry is not obsolete
+				if seqDict[sequence] == i[3]: #if they have the same length
+					continue #entry is up to date, the code does nothing
+				else: #if the length is different, i.e. our entry is outdated
+					cur.execute("UPDATE uckb.uniprot_isoform SET length=%s WHERE isoform_id=%s",(int(i[3]),long(float(i[0])))) #updated the db with the new length
+			else:
+                #since a lot of sequences with no isoform will be rejected before, they will go here, together with new entries.
+                #thus we check if an isoform 2 exists in our dictionary, if it does not, then the protein has no isoforms, i.e. it doesn't need to be added to the isoform db
+                if sequence.replace(sequence[-2::], "-2") in seqDict.keys(): #meaning if any of the entries in the dictionary has an isoform 2.
+				    cur.execute("INSERT INTO uckb.uniprot_isoform (isoform, uniprot_id, length) VALUES (%s, %s, %s)",(sequence,long(float(i[0])),int(i[3])))# add the current sequence in the db as it is not present
+                    checked.append(sequence)#added sequence so entry is not obsolete
+
+            	#TODO: AT THE MOMENT, EVEN THOSE SEQUENCES THAT DO NOT HAVE ISOFORMS ARE ADDED TO THE DATABASE, MAYBE ADD AN ELIF FOR "SEQUENCE-2" IF IT EXISTS THEN IT HAS ISOFORMS if not, delete it.
+
+    #TODO:
+	# - Check if entry (isoform Uniprot ID) already exists in iso: - if it does not, add it. =]> Checked
+	# 													  - if it does exist Check if the length changed, if so => update it. =]> Checked
+	# - else the entry does not exist add it. =]> Checked
+	# - obsolete entries => if the entry is obsolete, then it wouldn't have been checked
+
+	#Export of the isoform:
     if "-" in sequence: #if it is an isoform
         isoform = sequence.split("-")
-
 		#Log file:
         if int(isoform[1]) == 2: #if it is the second isoform
             export.write("{}-1;{};{}\n".format(isoform[0],uniprotdata[isoform[0]],seqDict[isoform[0]]))
@@ -106,9 +135,3 @@ for sequence in seqDict.keys():
 #conn.commit() #Saves changes in the database.
 cur.close()
 conn.close()
-
-#TO DO:
-# - Check if entry (isoform Uniprot ID) already exists in iso: - if it does not, add it. =]> Checked
-# 													  - if it does exist Check if the length changed, if so => update it. =]> Checked
-# - else the entry does not exist add it. =]> Checked
-# - obsolete entries => if the entry is obsolete, then it wouldn't have been checked
