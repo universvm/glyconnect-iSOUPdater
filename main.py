@@ -9,7 +9,7 @@ from collections import defaultdict
 checked = [] #this is used later on, to delete obsolete entries
 
 #Dictionaries:
-uniprotdata = defaultdict(str) #creating empty dictionary with uniprot data and glyconnectID
+uniprotdata = defaultdict(str) #creating empty dictionary with Uniprot Accession number and uniprotID(to link with the db)
 seqDict = defaultdict(str) #contains uniprot accession and length
 
 #Export for the log files:
@@ -51,7 +51,7 @@ def parsER(page): #Defining uniprotAPI
     seqDict[acc_no] += str(len(seq))
 
 def uniprotAPI(acc_n): #Defining uniprotAPI
-    "Creates a call to the API with the given UniProtID (acc_n) to return the length of a protein."
+    "Creates a call to the API with the given UniProtAC (acc_n) to return the length of a protein."
     settings = urllib.urlencode(params) #calling parameters
     try: #tries to call the API.
         url = 'http://www.uniprot.org/uniprot/{0}.fasta?include=yes'.format(acc_n) #URL format to include isoforms
@@ -78,79 +78,66 @@ data = cur.fetchall()
 
 #Main Loop 1:
 for line in data: #for each line in the database
-    uniprotID = line[1]
-    uniprotdata[uniprotID] += str(line[0]) #Long number which connects to accession Uniprot
-    uniprotAPI(uniprotID)
+    uniprotAC = line[1] #uniprot Accession
+    uniprotdata[uniprotAC] += str(line[0]) #Long number which connects to accession Uniprot (uniprotID)
+    uniprotAPI(uniprotAC)
 
 #To select the isoTable:
 cur.execute("SELECT * FROM uckb.uniprot_isoform")
 isoTable = cur.fetchall()
 
-#Main Loop 2:
-export.write("Updated sequences; length:\n") #Header #TODO: fix log
+#Update old entries:
+export.write("Updated sequences: NEW DATA; (OLD LENGTH)\n") #Header #TODO: fix log
 for sequence in seqDict.keys():
 	#check each sequenceDictionary against each sequenceDB and do the logic
-    #TODO: Removing added/updated entries from the dictionary. Remaining entries are new and need to be added?
 	for i in isoTable: #Guide i[0] = id in uniprot_isoform; i[1] = uniprot accession; i[2] = uniprot id link; i[3] = length of the protein.
         #if i in isotable:
 		if "-" not in sequence: #even if it doesn't have the "-", it may have isoforms, so we try checking by adding -1
             #remove entries with no isoforms here:
             isoCheck =  sequence + "-2" #if the isoform of the sequence is in the dictionary
             if isoCheck not in seqDict.keys(): #if the isoform of the sequence is not in the dictionary
-                del seqDict[sequence] #delete the entry from dictionary
-            else:
-                sequence += "-1"
+                del seqDict[sequence] #delete the entry from dictionary because no isoforms are available
+            else: #sequence has isoforms
+                sequence += "-1" #adding "-1" to make "accession-1"
     			if sequence == i[1]: #if the sequence finds the corresponding entry in the DB
     				if seqDict[sequence] == i[3]: #if they have the same length
                     	checked.append(i[1]) #checked sequence so entry is not obsolete
+                        del seqDict[sequence] #deleting entry from the dictionary
     				else: #if the length is different, i.e. our entry is outdated
     					cur.execute("UPDATE uckb.uniprot_isoform SET length=%s WHERE isoform=%s",(int(seqDict[sequence]),i[1])) #updated the db with the new length
-                        export.write("{0}\n".format(i)) #log file
                         checked.append(i[1]) #checked sequence so entry is not obsolete
+                        export.write("{0}; ({1})\n".format(i, seqDict[sequence])) #TODO: log file
+                        del seqDict[sequence]#deleting entry from the dictionary
 
-                #else:      #TODO: delete (?)
-                # TODO:#at line 99-101 we rejected entries with no isoforms. Here we will receive first entries (accession-1) that have isoforms and are not in our database (new entries)
-                #     #another if to check if the entry in the db is correct
-                #     cur.execute("INSERT INTO uckb.uniprot_isoform (isoform, uniprot_id, length) VALUES (%s, %s, %s)",(sequence,long(float(i[0])),int(i[3])))# add the current sequence in the db as it is not present
-                #     export.write("{0}\n".format(i)) #log file
-                #     checked.append(sequence)#added sequence so entry is not obsolete
-
-        #TODO: FIX DOWN HERE:
-        else: #if it is an isoform "accession-*"
+        else: #if sequence is an isoform "accession-*" where "*" is a whole number (No need for isoCheck)
 			if sequence == i[1]: #if the sequence finds the corresponding entry in the DB
 				if seqDict[sequence] == i[3]: #if they have the same length
                 	checked.append(i[1]) #checked sequence so entry is not obsolete
+                    del seqDict[sequence]
 				else: #if the length is different, i.e. our entry is outdated
-					cur.execute("UPDATE uckb.uniprot_isoform SET length=%s WHERE isoform=%s",(int(i[3]),i[0])) #updated the db with the new length
-                    export.write("{0}\n".format(i)) #log file
+					cur.execute("UPDATE uckb.uniprot_isoform SET length=%s WHERE isoform=%s",(int(seqDict[sequence]),i[1])) #updated the db with the new length
                     checked.append(i[1]) #checked sequence so entry is not obsolete
-            # else:
-            #     #since a lot of sequences with no isoform will be rejected before, they will go here, together with new entries.
-            #     #thus we check if an isoform 2 exists in our dictionary, if it does not, then the protein has no isoforms, i.e. it doesn't need to be added to the isoform db
-            #     isoCheck = sequence.replace(sequence[-2::], "-2")
-            #     if isoCheck in seqDict.keys(): #meaning if any of the entries in the dictionary has an isoform 2.
-			# 	    cur.execute("INSERT INTO uckb.uniprot_isoform (isoform, uniprot_id, length) VALUES (%s, %s, %s)",(sequence,long(float(i[0])),int(i[3])))# add the current sequence in the db as it is not present
-            #         export.write("{0}\n".format(i)) #log file
-            #         checked.append(sequence)#added sequence so entry is not obsolete
+                    export.write("{0}; ({1})\n".format(i, seqDict[sequence])) #TODO: log file
+                    del seqDict[sequence]#deleting entry from the dictionary
 
-            #TODO: LOG FILE HERE
-            # isoform = sequence.split("-")
-            # #Log file:
-            # if int(isoform[1]) == 2: #if it is the second isoform
-            #     export.write("{}-1;{};{}\n".format(isoform[0],uniprotdata[isoform[0]],seqDict[isoform[0]]))
-            # export.write("{};{};{}\n".format(sequence,uniprotdata[isoform[0]],seqDict[sequence]))
+#Now the dictionary only contains new entries since checked/updated sequences have been deleted.
+#Adding new entries:
+export.write("New entries: (format: isoform, uniprot_id, length)\n") #Header #TODO: fix log
+for sequence in seqDict.keys():
+    cur.execute("INSERT INTO uckb.uniprot_isoform (isoform, uniprot_id, length) VALUES (%s, %s, %s)",(sequence,long(float(uniprotdata[sequence])), int(seqDict[sequence])))
+    checked.append(sequence)
+    export.write("{0}, {1}, {2}\n".format(sequence,long(float(uniprotdata[sequence])), int(seqDict[sequence]))) #TODO: log file
+    del seqDict[sequence]
 
-#Loop over the dictionary:
-    #the remaining entries are new sequences so they need to be inserted:
-    #cur.execute("INSERT INTO uckb.test (name, age) VALUES (%s, %s)",("asd ads fdf ", 2))
-
-# #Main Loop 4:
-# for s in isoTable:
-#     if s[1] in checked:
-#         continue
-#     else:
-
-
+#Deleting obsolete entries:
+export.write("Deleted entries: (format: isoform, uniprot_id, length)\n") #Header #TODO: fix log
+for i in isoTable:
+    if i[1] in checked:
+        continue
+    else:
+#
+# cur.execute("DELETE FROM uckb.uniprot_isoform WHERE isoform = %s", ("TRYING",))
+# cur.execute("INSERT INTO uckb.uniprot_isoform (isoform, uniprot_id, length) VALUES (%s, %s, %s)",("Obsolete entry",long(float(666)), int(66666)))
 
 
     #TODO:
