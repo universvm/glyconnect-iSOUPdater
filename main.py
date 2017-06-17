@@ -1,6 +1,7 @@
 #Packages:
 import psycopg2
 import sys
+import datetime
 import pprint
 import urllib,urllib2
 from collections import defaultdict
@@ -13,8 +14,8 @@ uniprotdata = defaultdict(str) #creating empty dictionary with Uniprot Accession
 seqDict = defaultdict(str) #contains uniprot accession and length
 
 #Export for the log files:
-export = open("data/log.csv", "w") #keeping a log file
-export.write("isoform;uniprot_id;length\n") #Header
+export = open("data/log{0}.csv".format(datetime.date.today()), "w") #keeping a log file
+export.write("SoupDate (YY-MM-DD):,{0}\n".format(datetime.date.today())) #Header
 
 #Parameters: To keep the main structure of API to work (email address is needed).
 params = {
@@ -62,7 +63,7 @@ def uniprotAPI(acc_n): #Defining uniprotAPI
 		parsER(response) #parsing the response
 	except urllib2.HTTPError: #if API call fails, it displays which one of the entry has a problem
 		print("There is an error for the {0} entry".format(acc_n))
-
+		export.write("Error with API for {0}\n".format(acc_n))
 #Connection to the DB: Useful > https://www.youtube.com/watch?v=Z9txOWCWMwA, https://wiki.postgresql.org/wiki/Using_psycopg2_with_PostgreSQL
 conn_string = "host='localhost' dbname='unicarbkb' user='postgres'"
 
@@ -86,10 +87,6 @@ for line in data: #for each line in the database
 cur.execute("SELECT * FROM uckb.uniprot_isoform")
 isoTable = cur.fetchall()
 
-print(len(seqDict))
-l = seqDict.keys()
-print(l)
-print("END of Dict")
 #Update old entries:
 export.write("Updated sequences: OLD Data, NEW Length,\n") #Header
 for sequence in seqDict.keys():
@@ -104,60 +101,64 @@ for sequence in seqDict.keys():
 				except KeyError:
 					continue
 			else: #sequence has isoforms
-				# TODO: remove -1 as there is a mistake in uniprot
-				firstIso = sequence #adding "-1" to make "accession-1"
-				if firstIso == i[1]: #if the sequence finds the corresponding entry in the DB
+				if sequence == i[1]: #if the sequence finds the corresponding entry in the DB
 					if seqDict[sequence] == str(i[3]): #if they have the same length
 						checked.append(i[1]) #checked sequence so entry is not obsolete
-						#TODO: may be unnecessary
 						try:
 							del seqDict[sequence] #deleting entry from the dictionary
 						except KeyError:
 							continue
-					elif seqDict[sequence] == "": #the string is empty
+					elif seqDict[sequence] == '': #the string is empty
 						continue #continue the loop
 					else: #if the length is different, i.e. our entry is outdated
-						# cur.execute("UPDATE uckb.uniprot_isoform SET length=%s WHERE isoform=%s",(int(seqDict[sequence]),i[1])) #updated the db with the new length
+						cur.execute("UPDATE uckb.uniprot_isoform SET length=%s WHERE isoform=%s",(long(seqDict[sequence]),i[1])) #updated the db with the new length
 						checked.append(i[1]) #checked sequence so entry is not obsolete
 						export.write("{0}, {1}\n".format(i, seqDict[sequence]))
-						del seqDict[sequence]#deleting entry from the dictionary
+						try:
+							del seqDict[sequence] #deleting entry from the dictionary
+						except KeyError:
+							continue
 
-		else: #if sequence is an isoform "accession-*" where "*" is a whole number > 1 (therefore no need for isoCheck)
+		else: #if sequence is an isoform "accession-*" where "*" is a whole number >= 1
 			if sequence == i[1]: #if the sequence finds the corresponding entry in the DB
-				# print("Seems to be working")
 				if seqDict[sequence] == str(i[3]): #if they have the same length
 					checked.append(i[1]) #checked sequence so entry is not obsolete
-					del seqDict[sequence]
-				elif seqDict[sequence] == "": #the string is empty
+					try:
+						del seqDict[sequence] #deleting entry from the dictionary
+					except KeyError:
+						continue
+				elif seqDict[sequence] == '': #the string is empty
 					continue #continue the loop
 				else: #if the length is different, i.e. our entry is outdated
 					export.write("{0}, ({1})\n".format(i, seqDict[sequence]))
-		# 			# cur.execute("UPDATE uckb.uniprot_isoform SET length=%s WHERE isoform=%s",(seqDict[sequence],i[1])) #updated the db with the new length
+					cur.execute("UPDATE uckb.uniprot_isoform SET length=%s WHERE isoform=%s",(long(seqDict[sequence]),i[1])) #updated the db with the new length
 					checked.append(i[1]) #checked sequence so entry is not obsolete
-					del seqDict[sequence]#deleting entry from the dictionary
-		# 	else:
-		# 		continue
+					try:
+						del seqDict[sequence] #deleting entry from the dictionary
+					except KeyError:
+						continue
 #Now the dictionary only contains new entries since checked/updated sequences have been deleted.
 #Adding new entries:
-# export.write("New entries: (format: isoform, uniprot_id, length)\n") #Header
-# for sequence in seqDict.keys():
-# 	cur.execute("INSERT INTO uckb.uniprot_isoform (isoform, uniprot_id, length) VALUES (%s, %s, %s)",(sequence,long(float(uniprotdata[sequence])), seqDict[sequence]))
-# 	checked.append(sequence)
-# 	export.write("{0}, {1}, {2}\n".format(sequence,long(float(uniprotdata[sequence])), int(float(seqDict[sequence]))))
-# 	del seqDict[sequence]
-#
-# #Deleting obsolete entries:
-# export.write("Deleted entries:\n") #Header
-# for i in isoTable:
-# 	if i[1] in checked:
-# 		continue
-# 	else:
-# 		cur.execute("DELETE FROM uckb.uniprot_isoform WHERE isoform = %s", (i[1]))
-		# export.write("{0}\n".format(i))
+export.write("New entries: (format: isoform, uniprot_id, length)\n") #Header
+for sequence in seqDict.keys():
+	cur.execute("INSERT INTO uckb.uniprot_isoform (isoform, uniprot_id, length) VALUES (%s, %s, %s)",(sequence,long(uniprotdata[sequence]), long(seqDict[sequence])))
+	checked.append(sequence)
+	export.write("{0}, {1}, {2}\n".format(sequence,uniprotdata[sequence], seqDict[sequence]))
+	try:
+		del seqDict[sequence] #deleting entry from the dictionary
+	except KeyError:
+		continue
+
+#Deleting obsolete entries:
+export.write("Deleted entries:\n") #Header
+for i in isoTable:
+	if i[1] in checked:
+		continue
+	else:
+		cur.execute("DELETE FROM uckb.uniprot_isoform WHERE isoform = %s", [i[1]]) #isoform must be around "[]" for indexing
+		export.write("{0}\n".format(i))
 
 #Closing:
-print(seqDict)
-print(len(seqDict))
 conn.commit() #Saves changes in the database.
 cur.close()
 conn.close()
