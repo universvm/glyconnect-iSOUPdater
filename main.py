@@ -121,6 +121,7 @@ for sequence in seqDict.keys():
 
 		else: #if sequence is an isoform "accession-*" where "*" is a whole number >= 1
 			if sequence == i[1]: #if the sequence finds the corresponding entry in the DB
+				# print("Seems to be working")
 				if seqDict[sequence] == str(i[3]): #if they have the same length
 					checked.append(i[1]) #checked sequence so entry is not obsolete
 					try:
