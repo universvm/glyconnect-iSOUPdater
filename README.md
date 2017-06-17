@@ -1,6 +1,11 @@
 # glyconnect-iSOUPdater
 Glyconnect updater for the isoforms directly in the database. In this case, localhost was used. 
 
+
+# Log File
+A log file is created for EVERY action the program does which affects the database (adding new entries, updating, deleting) or is related to failure of the Uniprot API. The format name for the log file is "log$DATE.csv" where $DATE is replaced with the date the iSOUPdater was used. 
+
+
 # Logic to interact with the Database
 Below is the general logic of the main.py file. Although not shown below due to space constraints, the code contacts the UniProt API using data from the UniProt table in UniCarbKB, to retrieve data with the Accession Number (Accession) and the sequence. 
  
