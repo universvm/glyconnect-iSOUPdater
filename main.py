@@ -14,7 +14,7 @@ uniprotdata = defaultdict(str) #creating empty dictionary with Uniprot Accession
 seqDict = defaultdict(str) #contains uniprot accession and length
 
 #Export for the log files:
-export = open("data/log{0}.csv".format(datetime.date.today()), "w") #keeping a log file
+export = open("log{0}.csv".format(datetime.date.today()), "w") #keeping a log file
 export.write("SoupDate (YY-MM-DD):,{0}\n".format(datetime.date.today())) #Header
 
 #Parameters: To keep the main structure of API to work (email address is needed).
