@@ -86,6 +86,7 @@ for line in data: #for each line in the database
 #To select the isoTable:
 cur.execute("SELECT * FROM uckb.uniprot_isoform")
 isoTable = cur.fetchall()
+listDict = seqDict.keys()
 
 #Update old entries:
 export.write("Updated sequences: OLD Data, NEW Length,\n") #Header
@@ -95,8 +96,9 @@ for sequence in seqDict.keys():
 		if "-" not in sequence: #even if it doesn't have the "-", it may have isoforms, so we try checking by adding -1
 			#remove entries with no isoforms here:
 			isoCheck = sequence + "-2" #if the isoform of the sequence is in the dictionary
-			if isoCheck not in seqDict.keys(): #if the isoform of the sequence is not in the dictionary
+			if isoCheck not in listDict: #if the isoform of the sequence is not in the dictionary
 				try:
+					print("Deleting");print(sequence)
 					del seqDict[sequence] #delete the entry from dictionary because no isoforms are available
 				except KeyError:
 					continue
@@ -141,6 +143,7 @@ for sequence in seqDict.keys():
 #Now the dictionary only contains new entries since checked/updated sequences have been deleted.
 #Adding new entries:
 export.write("New entries: (format: isoform, uniprot_id, length)\n") #Header
+print(seqDict.keys())
 for sequence in seqDict.keys():
 	cur.execute("INSERT INTO uckb.uniprot_isoform (isoform, uniprot_id, length) VALUES (%s, %s, %s)",(sequence,long(uniprotdata[sequence]), long(seqDict[sequence])))
 	checked.append(sequence)
