@@ -5,19 +5,19 @@ Glyconnect updater for the isoforms directly in the database. In this case, loca
 Please set the following environment variables in order to connect to the database:
 
 
-host = 'PG_HOST_UCKB'
+host as 'PG_HOST_UCKB'
 
 
-port = 'PG_PORT_UCKB'
+port as 'PG_PORT_UCKB'
 
 
-database = 'PG_DB_UCKB'
+database as 'PG_DB_UCKB'
 
 
-user = 'PG_USER_UCKB'
+user as 'PG_USER_UCKB'
 
 
-password = 'PG_PASSWORD_UCKB'
+password as 'PG_PASSWORD_UCKB'
 
 
 # Log File
