@@ -1,4 +1,5 @@
 #Packages:
+import os
 import psycopg2
 import sys
 import datetime
@@ -64,8 +65,17 @@ def uniprotAPI(acc_n): #Defining uniprotAPI
 	except urllib2.HTTPError: #if API call fails, it displays which one of the entry has a problem
 		print("There is an error for the {0} entry".format(acc_n))
 		export.write("Error with API for {0}\n".format(acc_n))
+
+#Please set these variables as environment variables. Thanks to Julien Mariethoz
+host = os.environ.get('PG_HOST_UCKB')
+port = os.environ.get('PG_PORT_UCKB')
+database = os.environ.get('PG_DB_UCKB')
+user = os.environ.get('PG_USER_UCKB')
+password = os.environ.get('PG_PASSWORD_UCKB')
+
+
 #Connection to the DB: Useful > https://www.youtube.com/watch?v=Z9txOWCWMwA, https://wiki.postgresql.org/wiki/Using_psycopg2_with_PostgreSQL
-conn_string = "host='localhost' dbname='unicarbkb' user='postgres'"
+conn_string = "host=" + host + " dbname=" + database + " port=" + port + " user=" + user + " password=" + password
 
 # get a connection, if a connect cannot be made an exception will be raised here
 conn = psycopg2.connect(conn_string)
