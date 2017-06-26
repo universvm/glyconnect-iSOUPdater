@@ -108,7 +108,6 @@ for sequence in seqDict.keys():
 			isoCheck = sequence + "-2" #if the isoform of the sequence is in the dictionary
 			if isoCheck not in listDict: #if the isoform of the sequence is not in the dictionary
 				try:
-					print("Deleting");print(sequence)
 					del seqDict[sequence] #delete the entry from dictionary because no isoforms are available
 				except KeyError:
 					continue
