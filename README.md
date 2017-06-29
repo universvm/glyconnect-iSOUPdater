@@ -31,4 +31,4 @@ Below is the general logic of the main.py file. Although not shown below due to 
   The sequence length is calculated and then added to the dictionary with its relative Accession.
   
 ![alt text](https://github.com/universvm/glyconnect-iSOUPdater/blob/master/logic.png)
-Photoshop and Code2Flow were used to produce this.
+Photoshop and Code2Flow were used to produce this diagram.
